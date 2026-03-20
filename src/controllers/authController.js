@@ -15,11 +15,17 @@ exports.register = async (req, res, next) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
-    const { name, email, password } = req.body;
+    const { name, email, password, gender } = req.body;
     if (await User.findOne({ email })) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
-    const user = await User.create({ name, email, password, role: 'user' });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: 'user',
+      ...(gender === 'male' || gender === 'female' ? { gender } : {}),
+    });
     const token = signToken(user._id);
     res.status(201).json({
       success: true,

@@ -9,18 +9,38 @@ const populateProducts = {
 
 async function listAll(req, res, next) {
   try {
-    const wishlists = await Wishlist.find().lean();
+    const { page = 1, limit = 30 } = req.query;
+    const p = Math.max(1, parseInt(page, 10) || 1);
+    const lim = Math.min(100, parseInt(limit, 10) || 30);
+    const skip = (p - 1) * lim;
+
+    const q = { role: 'user' };
+    const [total, users] = await Promise.all([
+      User.countDocuments(q),
+      User.find(q).select('name email').sort({ name: 1 }).skip(skip).limit(lim).lean(),
+    ]);
+
+    const userIds = users.map((u) => u._id);
+    const wishDocs =
+      userIds.length > 0
+        ? await Wishlist.find({ userId: { $in: userIds } }).select('userId products').lean()
+        : [];
     const byUser = new Map(
-      wishlists.map((w) => [w.userId.toString(), (w.products || []).length])
+      wishDocs.map((w) => [w.userId.toString(), (w.products || []).length])
     );
-    const users = await User.find({ role: 'user' }).select('name email').sort({ name: 1 }).lean();
     const list = users.map((u) => ({
       userId: u._id,
       name: u.name,
       email: u.email,
       itemCount: byUser.get(u._id.toString()) || 0,
     }));
-    res.json({ wishlists: list });
+
+    res.json({
+      wishlists: list,
+      total,
+      page: p,
+      pages: Math.ceil(total / lim) || 1,
+    });
   } catch (e) {
     next(e);
   }

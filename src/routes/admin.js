@@ -24,6 +24,7 @@ const offerCtrl = require('../controllers/offerController');
 const orderCtrl = require('../controllers/orderController');
 const reviewCtrl = require('../controllers/reviewController');
 const wishlistAdminCtrl = require('../controllers/wishlistAdminController');
+const userAdminCtrl = require('../controllers/userAdminController');
 const analyticsCtrl = require('../controllers/analyticsController');
 const uploadCtrl = require('../controllers/uploadController');
 
@@ -65,6 +66,8 @@ router.delete('/offers/:id', authAdmin, offerCtrl.remove);
 
 router.get('/orders', authAdmin, orderCtrl.listAdmin);
 router.patch('/orders/:id/status', authAdmin, orderCtrl.updateStatus);
+
+router.get('/users', authAdmin, userAdminCtrl.list);
 
 router.get('/reviews', authAdmin, reviewCtrl.listAdmin);
 

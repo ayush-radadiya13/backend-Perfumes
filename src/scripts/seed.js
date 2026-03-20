@@ -29,6 +29,7 @@ async function seed() {
     email: 'user@test.com',
     password: 'user123',
     role: 'user',
+    gender: 'male',
   });
 
   const cat1 = await Category.create({ name: 'Floral', slug: 'floral', description: 'Floral fragrances' });
@@ -74,12 +75,25 @@ async function seed() {
     featured: false,
   });
 
+  const offerStart = new Date();
+  const offerEnd = new Date();
+  offerEnd.setMonth(offerEnd.getMonth() + 3);
   await Offer.create({
-    product: p3._id,
-    discountPercent: 20,
+    title: 'Summer Sale — Citrus Breeze',
+    description: 'Featured storefront offer',
+    image: '/placeholder-perfume.jpg',
+    originalPrice: 69.99,
+    discountKind: 'fixed',
     salePrice: 55.99,
-    active: true,
-    label: 'Summer Sale',
+    discountPercent: 0,
+    isFeatured: true,
+    showOnStorefront: true,
+    appliesTo: 'product',
+    products: [p3._id],
+    startDate: offerStart,
+    endDate: offerEnd,
+    isActive: true,
+    code: '',
   });
 
   await Rating.create({ user: user._id, product: p1._id, stars: 5, review: 'Lovely floral scent.' });

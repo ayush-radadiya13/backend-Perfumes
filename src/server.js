@@ -3,10 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { connectDB } = require('./config/db');
+const { startOrderAutoStatusJob } = require('./jobs/orderAutoStatus');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const ordersPublicRoutes = require('./routes/ordersPublic');
+const paymentRoutes = require('./routes/paymentRoutes');
 const wishlistRoutes = require('./routes/wishlist');
 
 const app = express();
@@ -31,6 +33,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/api', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', ordersPublicRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/admin', adminRoutes);
 
@@ -45,6 +48,7 @@ app.use((err, req, res, next) => {
 connectDB()
   .then(() => {
     app.listen(PORT, () => console.log(`API http://localhost:${PORT}`));
+    startOrderAutoStatusJob();
   })
   .catch((e) => {
     console.error(e);

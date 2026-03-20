@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Offer = require('../models/Offer');
+const { timingSafeEqualString } = require('../utils/cryptoUtil');
 
 function applyOfferToItems(items, offer, productsMap) {
   if (!offer || !offer.isActive) return { discount: 0, items };
@@ -69,6 +70,7 @@ async function persistOrder({
     lineItems.push({
       product: p._id,
       name: p.name,
+      image: Array.isArray(p.images) && p.images.length ? p.images[0] : '',
       price,
       quantity: qty,
     });
@@ -112,20 +114,67 @@ async function persistOrder({
 
 function orderToJSON(order) {
   const o = order.toObject ? order.toObject() : order;
+  const { paymentToken: _omit, ...rest } = o;
   return {
-    _id: o._id,
-    orderNumber: o.orderNumber,
-    items: o.items,
-    subtotal: o.subtotal,
-    discount: o.discount,
-    total: o.total,
-    status: o.status,
-    customerEmail: o.customerEmail,
-    customerName: o.customerName,
-    shippingAddress: o.shippingAddress,
-    createdAt: o.createdAt,
-    updatedAt: o.updatedAt,
+    _id: rest._id,
+    orderNumber: rest.orderNumber,
+    items: rest.items,
+    subtotal: rest.subtotal,
+    discount: rest.discount,
+    total: rest.total,
+    status: rest.status,
+    paymentStatus: rest.paymentStatus,
+    transactionId: rest.transactionId,
+    customerEmail: rest.customerEmail,
+    customerName: rest.customerName,
+    shippingAddress: rest.shippingAddress,
+    createdAt: rest.createdAt,
+    updatedAt: rest.updatedAt,
   };
+}
+
+/** Public summary for dummy gateway page (no PII beyond what checkout already collected). */
+async function getPaymentSummary(req, res) {
+  try {
+    const { orderId } = req.params;
+    const token = req.query.token;
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ message: 'token required' });
+    }
+    const order = await Order.findById(orderId).select('+paymentToken');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    if (!order.paymentToken) {
+      return res.json({
+        payable: false,
+        failed: order.paymentStatus === 'failed',
+        order: orderToJSON(order),
+      });
+    }
+    if (!timingSafeEqualString(token, order.paymentToken)) {
+      return res.status(403).json({ message: 'Invalid or expired payment link' });
+    }
+
+    res.json({
+      payable: true,
+      order: {
+        _id: order._id,
+        orderNumber: order.orderNumber,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        total: order.total,
+        paymentStatus: order.paymentStatus,
+        customerName: order.customerName,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: e.message || 'Error' });
+  }
 }
 
 /** POST /api/orders — optional Bearer links order to user */
@@ -141,7 +190,11 @@ async function createUserOrder(req, res) {
       offerCode,
       userId,
     });
-    res.status(201).json({ order: orderToJSON(order) });
+    const withToken = await Order.findById(order._id).select('+paymentToken');
+    res.status(201).json({
+      order: orderToJSON(withToken),
+      paymentToken: withToken.paymentToken,
+    });
   } catch (e) {
     const code = e.status || 500;
     if (code >= 500) console.error(e);
@@ -161,14 +214,18 @@ async function createCheckout(req, res) {
       offerCode,
       userId: null,
     });
+    const withToken = await Order.findById(order._id).select('+paymentToken');
     res.status(201).json({
       order: {
-        _id: order._id,
-        orderNumber: order.orderNumber,
-        total: order.total,
-        items: order.items,
-        status: order.status,
+        _id: withToken._id,
+        orderNumber: withToken.orderNumber,
+        total: withToken.total,
+        items: withToken.items,
+        status: withToken.status,
+        paymentStatus: withToken.paymentStatus,
+        transactionId: withToken.transactionId,
       },
+      paymentToken: withToken.paymentToken,
     });
   } catch (e) {
     const code = e.status || 500;
@@ -237,6 +294,7 @@ async function updateStatus(req, res) {
 module.exports = {
   createUserOrder,
   createCheckout,
+  getPaymentSummary,
   listMyOrders,
   getMyOrder,
   listAdmin,

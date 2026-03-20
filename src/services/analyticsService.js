@@ -122,7 +122,9 @@ async function getGraphData({ months = 12, granularity = 'month' } = {}) {
 }
 
 async function dashboardSummary() {
-  const [orderStats, productCount, categoryCount] = await Promise.all([
+  const User = require('../models/User');
+  const [orderStats, productCount, categoryCount, registeredMale, registeredFemale, totalRegistered] =
+    await Promise.all([
     Order.aggregate([
       {
         $facet: {
@@ -136,6 +138,9 @@ async function dashboardSummary() {
     ]),
     Product.countDocuments({ isActive: true }),
     require('../models/Category').countDocuments({ isActive: true }),
+    User.countDocuments({ role: 'user', gender: 'male' }),
+    User.countDocuments({ role: 'user', gender: 'female' }),
+    User.countDocuments({ role: 'user' }),
   ]);
 
   const rev = orderStats[0]?.revenue?.[0] || { total: 0, count: 0 };
@@ -153,6 +158,9 @@ async function dashboardSummary() {
     { $group: { _id: null, total: { $sum: '$total' } } },
   ]);
 
+  const withGender = registeredMale + registeredFemale;
+  const registeredWithoutGender = Math.max(0, totalRegistered - withGender);
+
   return {
     totalRevenue: Math.round((rev.total || 0) * 100) / 100,
     totalOrders: rev.count || 0,
@@ -160,6 +168,10 @@ async function dashboardSummary() {
     monthlySales: Math.round((thisMonth[0]?.total || 0) * 100) / 100,
     activeProducts: productCount,
     activeCategories: categoryCount,
+    registeredMale,
+    registeredFemale,
+    totalRegistered,
+    registeredWithoutGender,
   };
 }
 

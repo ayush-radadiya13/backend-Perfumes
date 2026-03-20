@@ -6,6 +6,7 @@ const productCtrl = require('../controllers/productController');
 const orderCtrl = require('../controllers/orderController');
 const reviewCtrl = require('../controllers/reviewController');
 const heroCtrl = require('../controllers/heroController');
+const offerCtrl = require('../controllers/offerController');
 const wishlistAdminCtrl = require('../controllers/wishlistAdminController');
 
 router.get('/categories', (req, res) => {
@@ -17,6 +18,7 @@ router.get('/collections', (req, res) => {
   return collectionCtrl.listStorefront(req, res);
 });
 router.get('/hero-sale', heroCtrl.getHeroSale);
+router.get('/offers', offerCtrl.listPublic);
 router.get('/most-wishlisted', wishlistAdminCtrl.mostWishlisted);
 router.get('/products', productCtrl.listPublic);
 router.get('/products/slug/:slug', productCtrl.getBySlug);
